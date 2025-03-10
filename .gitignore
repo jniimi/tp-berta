@@ -3,4 +3,5 @@
 *.pkl
 *.pickle
 *.json
-pretrain_outputs/*
+*pretrain_outputs*
+*finetune_outputs*
