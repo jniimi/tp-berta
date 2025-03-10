@@ -78,6 +78,9 @@ if args.num_datasets is not None:
         json.dump(skip_datasets, f, indent=4)
 else:
     used_datasets = all_datasets
+print('[Used Datasets]')
+for dat in used_datasets:
+    print(dat)
 feature_to_check = []
 dropped_datasets = []
 feature_name_dict = {} # standardized feature name
