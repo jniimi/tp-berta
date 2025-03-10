@@ -75,6 +75,7 @@ parser.add_argument("--max_epochs", type=int, default=200)
 parser.add_argument("--early_stop", type=int, default=50)
 parser.add_argument("--batch_size", type=int, default=64)
 parser.add_argument("--lamb", type=float, default=0.) # no regularization in finetune
+parser.add_argument("--device", type=str, default='cpu', choices=['cpu','cuda','mps'], help='Device for PyTorch')
 # parser.add_argument("--wandb", action='store_true')
 args = parser.parse_args()
 
@@ -103,7 +104,12 @@ data_config = DataConfig.from_pretrained(
 (data_loader, _), dataset = load_single_dataset(args.dataset, data_config, args.task)
 
 """ Model Preparation """
-device = torch.device('cuda')
+if args.device == 'cuda' and not torch.cuda.is_available():
+    raise ValueError('CUDA is specified but not available.')
+if args.device == 'mps' and not torch.backends.mps.is_available():
+    raise ValueError('MPS is specified but not available.')
+
+device = torch.device(args.device)
 args.pretrain_dir = str(CHECKPOINT_DIR) # pre-trained TPBerta dir
 model_config, model = build_default_model(args, data_config, dataset.n_classes, device, pretrain=True) # use pre-trained weights & configs
 optimizer = make_tpberta_optimizer(model, lr=args.lr, weight_decay=args.weight_decay)
