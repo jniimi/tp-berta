@@ -1,7 +1,7 @@
 This repository has been modified by [jniimi(@JvckAndersen)](https://x.com/JvckAndersen) to implement on the recent environment.
 - Changed the version of the dependencies
 - Adding some arguments and functions
-- Demo .ipynb notebook for Google Colab
+- Demo .ipynb notebook for Google Colab [[pretrain](https://colab.research.google.com/github/jniimi/tp-berta/blob/main/demo_pretrain.ipynb)] [[finetune](https://colab.research.google.com/github/jniimi/tp-berta/blob/main/demo_finetune.ipynb)]
 
 # TP-BERTa: A Fundamental LM Adaption Technique to Tabular Data
 
