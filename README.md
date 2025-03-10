@@ -1,6 +1,7 @@
-This repository has been modified by jniimi to implement on the recent environment.
+This repository has been modified by [jniimi(@JvckAndersen)](https://x.com/JvckAndersen) to implement on the recent environment.
 - Changed the version of the dependencies
 - Adding some arguments and functions
+- Demo .ipynb notebook for Google Colab
 
 # TP-BERTa: A Fundamental LM Adaption Technique to Tabular Data
 
