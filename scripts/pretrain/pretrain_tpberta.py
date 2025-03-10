@@ -38,6 +38,7 @@ parser.add_argument("--peak_lr", type=float, default=3e-5, help='Maximum learnin
 parser.add_argument("--min_lr", type=float, default=1e-6, help='Minimum learning rate')
 parser.add_argument("--lamb", type=float, default=0.1, help='Weight for triplet loss regularization')
 parser.add_argument("--wandb", action='store_true', help='Upload to wandb for inspection or not')
+parser.add_argument("--device", type=str, default='cpu', choices=['cpu','cuda','mps'], help='Device for PyTorch')
 
 args = parser.parse_args()
 # Path to pre-training results
@@ -45,7 +46,6 @@ run_id = f'TPBerta_{args.task}-BS{args.batch_size}-MaxEpoch{args.max_epochs}' # 
 args.result_dir = f'{args.result_dir}/{run_id}'
 if not os.path.exists(args.result_dir):
     os.makedirs(args.result_dir)
-
 
 def fetch_dataset_list(data_dir: Path):
     # read a data directory with all csv files for pre-training
@@ -56,7 +56,6 @@ def fetch_dataset_list(data_dir: Path):
             skip_datasets = json.load(f)
         ds = [d for d in ds if not any(sd in d for sd in skip_datasets)]
     return ds
-
 
 """ Data Preparation """
 if args.task != 'joint':
@@ -95,17 +94,20 @@ else: # pre-training on both binclass & regression datasets
     datasets = datasets_bin + datasets_reg
     data_config = data_config_bin # same as data_config_reg except data path, do not affect the subsequent training
 
-
 train, val, task_types = [], [], []
 for i, (data_loader, task_type) in enumerate(dataloaders):
     train.append(data_loader['train']) # train loaders
     val.append(data_loader['val']) # val loaders
     task_types.append(datasets[i].task_type.value)
 
-
 """ Model Preparation """
 # model
-device = torch.device('cuda')
+if args.device == 'cuda' and not torch.cuda.is_available():
+    raise ValueError('CUDA is specified but not available.')
+if args.device == 'mps' and not torch.backends.mps.is_available():
+    raise ValueError('MPS is specified but not available.')
+
+device = torch.device(args.device)
 num_classes = [d.n_classes for d in datasets] # class numbers for task-specific heads
 model_config, model = build_default_model(args, data_config, num_classes, device)
 # model_config.save_pretrained(args.result_dir) # for downstream load
