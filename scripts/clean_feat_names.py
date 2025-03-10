@@ -5,10 +5,11 @@ import os
 import sys
 sys.path.append(os.getcwd())
 import json
+import random
 import pandas as pd
+from pathlib import Path
 
 import argparse
-
 parser = argparse.ArgumentParser()
 parser.add_argument("--mode", type=str, choices=['pretrain', 'finetune'], help='Which training task is to conduct', required=True)
 parser.add_argument("--task", type=str, choices=['binclass', 'regression', 'multiclass'], help='Which part of datasets to standardize', required=True)
@@ -67,12 +68,16 @@ def fix_camel_case(x: str):
     words.append(cur_char)
     return ' '.join(words), min_chars_len
 
-
-used_datasets = [file for file in os.listdir(DATA) if file.endswith('.csv')]
+all_datasets = [file for file in os.listdir(DATA) if file.endswith('.csv')]
 if args.num_datasets is not None:
-    import random
     datasets_rng = random.Random(args.dataset_seed)
-    used_datasets = datasets_rng.sample(used_datasets, k=args.num_datasets)
+    used_datasets = datasets_rng.sample(all_datasets, k=args.num_datasets)
+    
+    skip_datasets = [Path(ds).stem for ds in all_datasets if ds not in used_datasets]
+    with open(DATA / 'skip_datasets.json', 'w') as f:
+        json.dump(skip_datasets, f, indent=4)
+else:
+    used_datasets = all_datasets
 feature_to_check = []
 dropped_datasets = []
 feature_name_dict = {} # standardized feature name
