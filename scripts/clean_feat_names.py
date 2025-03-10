@@ -12,6 +12,8 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument("--mode", type=str, choices=['pretrain', 'finetune'], help='Which training task is to conduct', required=True)
 parser.add_argument("--task", type=str, choices=['binclass', 'regression', 'multiclass'], help='Which part of datasets to standardize', required=True)
+parser.add_argument("--num_datasets", type=int, default=None, help='Specify how many datasets to train')
+parser.add_argument("--dataset_seed", type=int, default=123, help='Random seed to sample the datasets')
 parser.add_argument("--overwrite", action='store_true', help='Overwrite existing clean feature name map')
 
 args = parser.parse_args()
@@ -67,6 +69,10 @@ def fix_camel_case(x: str):
 
 
 used_datasets = [file for file in os.listdir(DATA) if file.endswith('.csv')]
+if args.num_datasets is not None:
+    import random
+    datasets_rng = random.Random(args.dataset_seed)
+    used_datasets = datasets_rng.sample(used_datasets, k=args.num_datasets)
 feature_to_check = []
 dropped_datasets = []
 feature_name_dict = {} # standardized feature name
