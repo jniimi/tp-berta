@@ -1,7 +1,10 @@
+*.DS_Store
 *.pyc
 *.csv
 *.pkl
 *.pickle
 *.json
-*pretrain_outputs*
-*finetune_outputs*
+data/
+checkpoints/
+finetune_outputs/
+pretrain_outputs/
