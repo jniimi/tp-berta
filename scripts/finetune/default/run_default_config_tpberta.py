@@ -99,7 +99,7 @@ seed_everything(seed=42)
 """ Data Preparation """
 data_config = DataConfig.from_pretrained(
     CHECKPOINT_DIR, data_dir=FINETUNE_DATA,
-    batch_size=64, train_ratio=0.8, 
+    batch_size=args.batch_size, train_ratio=0.8, 
     preproc_type='lm', pre_train=False)
 (data_loader, _), dataset = load_single_dataset(args.dataset, data_config, args.task)
 
