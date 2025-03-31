@@ -13,7 +13,7 @@ import argparse
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
-from tqdm import trange, tqdm
+from tqdm.auto import trange, tqdm
 from pathlib import Path
 
 from bin import build_default_model
@@ -96,7 +96,6 @@ elif args.task == 'multiclass':
     from lib import FINETUNE_MUL_DATA as FINETUNE_DATA
     from lib import BIN_CHECKPOINT as CHECKPOINT_DIR
 
-
 seed_everything(seed=42)
 """ Data Preparation """
 data_config = DataConfig.from_pretrained(
@@ -154,7 +153,8 @@ for epoch in trange(args.max_epochs, desc='Finetuning'):
     tr_loss = 0. # train loss
     reg_loss = 0. # regularization loss (used in pre-training but not used in finetune)
     model.train()
-    for batch in tqdm(data_loader['train'], desc=f'epoch-{epoch}'):
+
+    for batch in data_loader['train']:
         batch = {k: v.to(device) for k, v in batch.items()}
         labels = batch.pop('labels')
 
@@ -172,7 +172,6 @@ for epoch in trange(args.max_epochs, desc='Finetuning'):
         #print(f'\repoch [{epoch+1}/{args.max_epochs}] | step {cur_step+1} | avg tr loss: {tr_loss / (cur_step+1)} | avg reg loss: {reg_loss / (cur_step+1)}', end='')
         cur_step += 1
         tot_step += 1
-        tqdm.write(f'epoch [{epoch+1}/{args.max_epochs}] | step {cur_step} | avg tr loss: {tr_loss / cur_step:.4f} | avg reg loss: {reg_loss / cur_step:.4f}', end='\r')
         
         if tot_step % steps_per_save == 0:
             print(f'[STEP] {tot_step}: saving tmp results')
@@ -192,10 +191,62 @@ for epoch in trange(args.max_epochs, desc='Finetuning'):
     #     if args.lamb > 0:
     #         wandb.log({f'{args.dataset}-reg_loss': tr_reg_losses[-1]}, step=tot_step)
 
+    # フルバッチ取得用関数
+    def get_fullbatch(loader, device):
+        all_inputs, all_labels = [], []
+        for batch in loader:
+            batch = {k: v.to(device) for k, v in batch.items()}
+            labels = batch.pop('labels')
+            all_inputs.append(batch)
+            all_labels.append(labels)
+        return all_inputs, torch.cat(all_labels)
+
+    # フルバッチの予測値を取得する関数
+    def predict_fullbatch(model, inputs):
+        logits_all = []
+        model.eval()
+        with torch.no_grad():
+            for batch in inputs:
+                logits, _ = model(**batch)
+                logits_all.append(logits.cpu())
+        return torch.cat(logits_all)
+
+    # フルバッチを使ったloss計算
+    train_inputs, train_labels = get_fullbatch(data_loader['train'], device)
+    val_inputs, val_labels = get_fullbatch(data_loader['val'], device)
+    test_inputs, test_labels = get_fullbatch(data_loader['test'], device)
+
+    train_preds = predict_fullbatch(model, train_inputs)
+    val_preds = predict_fullbatch(model, val_inputs)
+    test_preds = predict_fullbatch(model, test_inputs)
+
+    fullbatch_loss_train = calculate_metrics(
+        train_labels.cpu().numpy(), train_preds.cpu().numpy(),
+        dataset.task_type.value,
+        'logits' if not dataset.is_regression else None,
+        dataset.y_info
+    )[metric_key]
+
+    fullbatch_loss_val = calculate_metrics(
+        val_labels.cpu().numpy(), val_preds.cpu().numpy(),
+        dataset.task_type.value,
+        'logits' if not dataset.is_regression else None,
+        dataset.y_info
+    )[metric_key]
+
+    fullbatch_loss_test = calculate_metrics(
+        test_labels.cpu().numpy(), test_preds.cpu().numpy(),
+        dataset.task_type.value,
+        'logits' if not dataset.is_regression else None,
+        dataset.y_info
+    )[metric_key]
+
+    print(f"Full-batch {metric_key.upper()} | Train: {fullbatch_loss_train:.4f}, Val: {fullbatch_loss_val:.4f}, Test: {fullbatch_loss_test:.4f}")
+
     # evaluating
     preds, golds, ev_loss = [], [], []
     model.eval()
-    for batch in tqdm(data_loader['val'], desc='evaluate'):
+    for batch in data_loader['val']:
         batch = {k: v.to(device) for k, v in batch.items()}
         labels = batch.pop('labels')
         with torch.no_grad():
@@ -217,7 +268,7 @@ for epoch in trange(args.max_epochs, desc='Finetuning'):
 
     # testing
     preds, golds = [], []
-    for batch in tqdm(data_loader['test'], desc='testing'):
+    for batch in data_loader['test']:
         batch = {k: v.to(device) for k, v in batch.items()}
         labels = batch.pop('labels')
         with torch.no_grad():
@@ -239,8 +290,7 @@ for epoch in trange(args.max_epochs, desc='Finetuning'):
     #         f'{args.dataset}-ev_metric': ev_metrics[-1],
     #     }, step=tot_step)
 
-    print()
-    print(f'[Eval] {metric_key}: {score} | [Test] {metric_key}: {test_score}')
+    #print(f'[Eval] {metric_key}: {score} | [Test] {metric_key}: {test_score}')
     if score > best_metric:
         best_metric = score
         final_test_metric = test_score
