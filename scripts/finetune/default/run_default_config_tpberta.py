@@ -10,6 +10,9 @@ import shutil
 import random
 import argparse
 
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
+
 from tqdm import trange, tqdm
 from pathlib import Path
 
@@ -62,7 +65,6 @@ def seed_everything(seed=42):
         # When running on the CuDNN backend, two further options must be set
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
-
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--result_dir", type=str, default='finetune_outputs')
