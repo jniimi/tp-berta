@@ -169,9 +169,11 @@ for epoch in trange(args.max_epochs, desc='Finetuning'):
         
         loss.backward()
         optimizer.step()
-        print(f'\repoch [{epoch+1}/{args.max_epochs}] | step {cur_step+1} | avg tr loss: {tr_loss / (cur_step+1)} | avg reg loss: {reg_loss / (cur_step+1)}', end='')
+        #print(f'\repoch [{epoch+1}/{args.max_epochs}] | step {cur_step+1} | avg tr loss: {tr_loss / (cur_step+1)} | avg reg loss: {reg_loss / (cur_step+1)}', end='')
         cur_step += 1
         tot_step += 1
+        tqdm.write(f'epoch [{epoch+1}/{args.max_epochs}] | step {cur_step} | avg tr loss: {tr_loss / cur_step:.4f} | avg reg loss: {reg_loss / cur_step:.4f}', end='\r')
+        
         if tot_step % steps_per_save == 0:
             print(f'[STEP] {tot_step}: saving tmp results')
             save_result(
