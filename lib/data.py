@@ -71,9 +71,8 @@ class Dataset2:
     label_enc: Optional[LabelEncoder] = None
 
     @classmethod
-    def from_pandas(
+    def from_csv(
         cls, 
-        df: pd.DataFrame,
         data_dir: Union[Path, str], 
         data_name: str, 
         max_cat_num: Optional[int] = None, 
@@ -82,9 +81,9 @@ class Dataset2:
         tt: str = None, # task type
     ) -> 'Dataset2':
 
-        #csv_file = Path(data_dir) / f'{data_name}.csv'
+        csv_file = Path(data_dir) / f'{data_name}.csv'
 
-        #df = pd.read_csv(csv_file)
+        df = pd.read_csv(csv_file)
         max_cat_num = max_cat_num or int(len(df) / 100)
 
         # treat the last column as the label column in default
@@ -271,28 +270,6 @@ class Dataset2:
             data_name,
             prompt_infos,
         )
-    
-    @classmethod
-    def from_csv(
-        cls, 
-        csv_file: Union[Path, str],
-        data_name: str,
-        feature_map: Dict[str, str],
-        **kwargs
-    ) -> 'Dataset2':
-        df = pd.read_csv(csv_file)
-        return cls.from_pandas(df, data_name, feature_map, **kwargs)
-
-    @classmethod
-    def from_pickle(
-        cls, 
-        pickle_file: Union[Path, str],
-        data_name: str,
-        feature_map: Dict[str, str],
-        **kwargs
-    ) -> 'Dataset2':
-        df = pd.read_pickle(pickle_file)
-        return cls.from_pandas(df, data_name, feature_map, **kwargs)
     
     @property
     def is_binclass(self) -> bool:
