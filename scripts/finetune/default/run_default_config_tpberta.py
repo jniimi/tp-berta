@@ -73,11 +73,13 @@ parser.add_argument("--dataset", type=str, default='HR Employee Attrition')
 parser.add_argument("--task", type=str, choices=['binclass', 'regression', 'multiclass'], required=True)
 parser.add_argument("--lr", type=float, default=1e-5) # fixed learning rate
 parser.add_argument("--weight_decay", type=float, default=0.) # no weight decay in default
+parser.add_argument("--train_ratio", type=float, default=0.8) # train-test split
 parser.add_argument("--max_epochs", type=int, default=200)
 parser.add_argument("--early_stop", type=int, default=50)
 parser.add_argument("--batch_size", type=int, default=64)
 parser.add_argument("--lamb", type=float, default=0.) # no regularization in finetune
 parser.add_argument("--device", type=str, default='cpu', choices=['cpu','cuda','mps'], help='Device for PyTorch')
+parser.add_argument("--preparation_only", action='store_true')
 # parser.add_argument("--wandb", action='store_true')
 args = parser.parse_args()
 
@@ -100,7 +102,7 @@ seed_everything(seed=42)
 """ Data Preparation """
 data_config = DataConfig.from_pretrained(
     CHECKPOINT_DIR, data_dir=FINETUNE_DATA,
-    batch_size=args.batch_size, train_ratio=0.8, 
+    batch_size=args.batch_size, train_ratio=args.train_ratio, use_cache=False,
     preproc_type='lm', pre_train=False)
 (data_loader, _), dataset = load_single_dataset(args.dataset, data_config, args.task)
 
@@ -148,6 +150,22 @@ steps_per_save = 200
 #         notes=f'xxx',
 #         job_type='finetune'
 #     )
+
+files = {
+    'args': args, 'metric_key': metric_key,
+    'data_config' : data_config,  'dataset': dataset, 'dataloader': data_loader,
+    'model_config': model_config, 'model': model,
+    'optimizer': optimizer, 'Regulator': Regulator
+}
+if args.preparation_only:
+    import pickle
+    outfname = 'files.pkl'
+    with open(CHECKPOINT_DIR/outfname, 'wb') as f:
+        pickle.dump(files, f)
+    print(f'Files have been saved: {CHECKPOINT_DIR/outfname}')
+    print('Now being terminated...')
+    sys.exit(0)
+
 for epoch in trange(args.max_epochs, desc='Finetuning'):
     cur_step = 0
     tr_loss = 0. # train loss
@@ -190,58 +208,6 @@ for epoch in trange(args.max_epochs, desc='Finetuning'):
     #     wandb.log({f'{args.dataset}-tr_loss': tr_task_losses[-1]}, step=tot_step)
     #     if args.lamb > 0:
     #         wandb.log({f'{args.dataset}-reg_loss': tr_reg_losses[-1]}, step=tot_step)
-
-    # フルバッチ取得用関数
-    def get_fullbatch(loader, device):
-        all_inputs, all_labels = [], []
-        for batch in loader:
-            batch = {k: v.to(device) for k, v in batch.items()}
-            labels = batch.pop('labels')
-            all_inputs.append(batch)
-            all_labels.append(labels)
-        return all_inputs, torch.cat(all_labels)
-
-    # フルバッチの予測値を取得する関数
-    def predict_fullbatch(model, inputs):
-        logits_all = []
-        model.eval()
-        with torch.no_grad():
-            for batch in inputs:
-                logits, _ = model(**batch)
-                logits_all.append(logits.cpu())
-        return torch.cat(logits_all)
-
-    # フルバッチを使ったloss計算
-    train_inputs, train_labels = get_fullbatch(data_loader['train'], device)
-    val_inputs, val_labels = get_fullbatch(data_loader['val'], device)
-    test_inputs, test_labels = get_fullbatch(data_loader['test'], device)
-
-    train_preds = predict_fullbatch(model, train_inputs)
-    val_preds = predict_fullbatch(model, val_inputs)
-    test_preds = predict_fullbatch(model, test_inputs)
-
-    fullbatch_loss_train = calculate_metrics(
-        train_labels.cpu().numpy(), train_preds.cpu().numpy(),
-        dataset.task_type.value,
-        'logits' if not dataset.is_regression else None,
-        dataset.y_info
-    )[metric_key]
-
-    fullbatch_loss_val = calculate_metrics(
-        val_labels.cpu().numpy(), val_preds.cpu().numpy(),
-        dataset.task_type.value,
-        'logits' if not dataset.is_regression else None,
-        dataset.y_info
-    )[metric_key]
-
-    fullbatch_loss_test = calculate_metrics(
-        test_labels.cpu().numpy(), test_preds.cpu().numpy(),
-        dataset.task_type.value,
-        'logits' if not dataset.is_regression else None,
-        dataset.y_info
-    )[metric_key]
-
-    print(f"Full-batch {metric_key.upper()} | Train: {fullbatch_loss_train:.4f}, Val: {fullbatch_loss_val:.4f}, Test: {fullbatch_loss_test:.4f}")
 
     # evaluating
     preds, golds, ev_loss = [], [], []
