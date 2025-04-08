@@ -9,3 +9,4 @@ checkpoints/
 finetune_outputs/
 pretrain_outputs/
 projects/
+wandb/
